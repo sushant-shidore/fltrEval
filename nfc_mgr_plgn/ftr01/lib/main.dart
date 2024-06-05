@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nfc_manager/nfc_manager.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +14,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.lime),
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'NFC Manager Plugin Test 01'),
@@ -33,9 +34,35 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
+  void debugPrint(String message){
+    print(message);
+  }
+
+  Future<void> _startNFCSession() async{
+    bool isAvailable = await NfcManager.instance.isAvailable();
+
+    if(isAvailable == true){
+      debugPrint("NFC Available");
+
+      NfcManager.instance.startSession(onDiscovered: (NfcTag nfcTag) async {
+
+        debugPrint("NFC Tag Detected");
+
+      });
+
+      NfcManager.instance.stopSession();
+
+    } else {
+      debugPrint("NFC Not Available");
+    }
+    
+  }
+
   void _incrementCounter() {
     setState(() {
       _counter++;
+
+      _startNFCSession();
     });
   }
 
