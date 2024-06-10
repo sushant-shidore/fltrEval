@@ -58,20 +58,47 @@ class NFCNotifier extends ChangeNotifier {
   }
 
   Future<void> _readFromTag({required NfcTag tag}) async {
-    Map<String, dynamic> nfcData = {
-      'nfca': tag.data['nfca'],
-      'mifareultralight': tag.data['mifareultralight'],
-      'ndef': tag.data['ndef']
-    };
+    // String? decodedText;
+    // try{
+    //   Map<String, dynamic> nfcData = {
+    //     'nfca': tag.data['nfca'],
+    //     'mifareultralight': tag.data['mifareultralight'],
+    //     'ndef': tag.data['ndef']
+    //   };
 
-    String? decodedText;
-    if (nfcData.containsKey('ndef')) {
-      List<int> payload =
-          nfcData['ndef']['cachedMessage']?['records']?[0]['payload'];
-      decodedText = String.fromCharCodes(payload);
+    //   if (nfcData.containsKey('ndef')) {
+    //     List<int> payload =
+    //         nfcData['ndef']['cachedMessage']?['records']?[0]['payload'];
+    //     decodedText = String.fromCharCodes(payload);
+    //   }
+    // } catch (e) {
+    //   decodedText = e.toString();
+    // } finally {
+    //   _message = decodedText ?? "No Data Found";
+    // }
+
+    try {
+      // Process NFC tag, When an NFC tag is discovered, print its data to the console.
+      debugPrint('NFC Tag Detected: ${tag.data}');
+
+      var tagData = {...tag.data};
+
+      if (tagData.keys.contains("iso15693")){
+        debugPrint(".......... iOS - ST Chip");
+      } else if (tagData.keys.contains("nfcv")) {
+        debugPrint(".......... Android - ST Chip");
+      }else if (tagData.keys.contains("mifare")) {
+        debugPrint(".......... iOS - NXP Chip");
+      } else if (tagData.keys.contains("mifareultralight")) {
+        debugPrint(".......... Android - NXP Chip");
+      } else {
+        debugPrint("Unknown Chip - $tagData[0].key");
+      }
+
+    } catch (e) {
+      debugPrint('Error reading NFC: $e');
     }
-
-    _message = decodedText ?? "No Data Found";
+    
   }
 
   Future<void> _writeToTag(

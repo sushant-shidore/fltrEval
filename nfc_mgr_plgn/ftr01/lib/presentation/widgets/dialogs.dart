@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 void scanningDialog(BuildContext context) {
@@ -40,4 +41,3 @@ void showResultDialog(BuildContext context, String message) {
     },
   );
 }
-
