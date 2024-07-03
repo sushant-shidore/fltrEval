@@ -160,48 +160,64 @@ class NFCNotifier extends ChangeNotifier {
             // requestFlagsForWrite.add(Iso15693RequestFlag.address);
             // requestFlagsForWrite.add(Iso15693RequestFlag.option);
 
-            await stTag?.writeSingleBlock(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, dataBlock: writeData01);
-
             List<Uint8List> writeData03 = [];
             
-            for(int i = 0; i< 10; i++) {
+            for(int i = 0; i< 4; i++) {
               writeData03.add(writeData01);
             }
 
+            int noOfBlocksToWrite = 300;
+
+            Stopwatch writeTimer = Stopwatch()..start();
+            // for(int i = 0; i < noOfBlocksToWrite; i++) {
+            //   await stTag?.extendedWriteSingleBlock(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, dataBlock: writeData01);
+
+            //   writeDataStartAddress++;
+            // }
+
+            int totalBytesWritten =0;
+            for(totalBytesWritten = 0; totalBytesWritten < 1216; totalBytesWritten +=16 ) {
+              await stTag?.extendedWriteMultipleBlocks(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, numberOfBlocks: writeData03.length, dataBlocks: writeData03);
+            }
+            totalBytesWritten-=16;
+
+            writeTimer.stop();
+            dPrint("It took ${writeTimer.elapsedMilliseconds}ms to write $totalBytesWritten bytes");
+
+            List<Uint8List>? readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: 20, numberOfBlocks: writeData03.length);
+            dPrint(readData.toString());
+
+
             //await stTag?.writeMultipleBlocks(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, numberOfBlocks: writeData03.length, dataBlocks: writeData03);
 
-            try {
+            // try {
 
-              int blocksToReadAtOnce = 60;
-              int totalBlocksToRead = 480;
-              int readIterationsRequired = (totalBlocksToRead ~/ blocksToReadAtOnce);   //This is the Flutter way to convert decimal division result into int
+            //   int blocksToReadAtOnce = 60;
+            //   int totalBlocksToRead = 480;
+            //   int readIterationsRequired = (totalBlocksToRead ~/ blocksToReadAtOnce);   //This is the Flutter way to convert decimal division result into int
 
-              List<Uint8List>? readBuffer = [];
-              List<Uint8List>? readData = [];
+            //   List<Uint8List>? readBuffer = [];
+            //   List<Uint8List>? readData = [];
               
-              Stopwatch readTimer = Stopwatch()..start();
+            //   Stopwatch readTimer = Stopwatch()..start();
 
-              for(int i=0; i<readIterationsRequired; i++){
-                readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: blocksToReadAtOnce);
-                writeDataStartAddress += blocksToReadAtOnce;
+            //   for(int i=0; i<readIterationsRequired; i++){
+            //     readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: blocksToReadAtOnce);
+            //     writeDataStartAddress += blocksToReadAtOnce;
 
-                if(readData != null){
-                  readBuffer.addAll(readData.toList());
-                }
-              }
-              readTimer.stop();
-              dPrint("It took ${readTimer.elapsedMilliseconds}ms to read ${readBuffer.length * 4} bytes");
+            //     if(readData != null){
+            //       readBuffer.addAll(readData.toList());
+            //     }
+            //   }
+            //   readTimer.stop();
+            //   dPrint("It took ${readTimer.elapsedMilliseconds}ms to read ${readBuffer.length * 4} bytes");
 
-              //List<Uint8List>? readData = await stTag?.readMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: 1);
-              
-              
+            //   //List<Uint8List>? readData = await stTag?.readMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: 1);
 
-
-
-              //dPrint(readData.toString());
-            } catch (e) {
-              dPrint("Exception during readback - ${e.toString()}");  
-            }
+            //   //dPrint(readData.toString());
+            // } catch (e) {
+            //   dPrint("Exception during readback - ${e.toString()}");  
+            // }
 
             } catch (e) {
               dPrint("Exception during write - ${e.toString()}");
