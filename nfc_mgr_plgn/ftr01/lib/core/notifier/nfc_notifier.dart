@@ -1,14 +1,18 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:typed_data';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ftr01/core/notifier/android_st.dart';
+import 'package:ftr01/logging.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/platform_tags.dart';
+import 'package:ftr01/core/notifier/ios_st.dart';
 
-class NFCNotifier extends ChangeNotifier {
+class NFCNotifier extends ChangeNotifier 
+{
+  final log = logger(NFCNotifier);
   bool _isProcessing = false;
   String _message = "";
   NFCChipType _nfcChipType = NFCChipType.Unidentified;
@@ -67,190 +71,130 @@ class NFCNotifier extends ChangeNotifier {
     }
   }
 
-  Future<void> _readFromTag({required NfcTag tag}) async {
-    // String? decodedText;
-    // try{
-    //   Map<String, dynamic> nfcData = {
-    //     'nfca': tag.data['nfca'],
-    //     'mifareultralight': tag.data['mifareultralight'],
-    //     'ndef': tag.data['ndef']
-    //   };
+  NFCChipType _identifyNfcChip(Iterable<String> nfcType) {
 
-    //   if (nfcData.containsKey('ndef')) {
-    //     List<int> payload =
-    //         nfcData['ndef']['cachedMessage']?['records']?[0]['payload'];
-    //     decodedText = String.fromCharCodes(payload);
-    //   }
-    // } catch (e) {
-    //   decodedText = e.toString();
-    // } finally {
-    //   _message = decodedText ?? "No Data Found";
-    // }
+      NFCChipType nfcChipIdentified = NFCChipType.Unidentified;
 
-    try {
+      if (nfcType.contains("iso15693")){
+        log.i(".......... iOS - ST Chip");
+        nfcChipIdentified = NFCChipType.ST_IOS;
+      } else if (nfcType.contains("nfcv")) {
+        log.i(".......... Android - ST Chip");
+        nfcChipIdentified = NFCChipType.ST_ANDROID;
+      }else if (nfcType.contains("mifare")) {
+        log.i(".......... iOS - NXP Chip");
+        nfcChipIdentified = NFCChipType.NXP_IOS;
+      } else if (nfcType.contains("mifareultralight")) {
+        log.i(".......... Android - NXP Chip");
+        nfcChipIdentified = NFCChipType.NXP_ANDROID;
+      } else {
+        log.e("Unknown Chip - $nfcType");
+        nfcChipIdentified = NFCChipType.Unidentified;
+      }
 
+      return nfcChipIdentified;
+  }
+
+  Future<void> _readFromTag({required NfcTag tag}) async 
+  { 
+    try 
+    {
       var tagData = {...tag.data};
 
-      dPrint("\n");
-      //Identify Chip Type
-      //
-      if (tagData.keys.contains("iso15693")){
-        dPrint(".......... iOS - ST Chip");
-        _nfcChipType = NFCChipType.ST;
-      } else if (tagData.keys.contains("nfcv")) {
-        dPrint(".......... Android - ST Chip");
-        _nfcChipType = NFCChipType.ST;
-      }else if (tagData.keys.contains("mifare")) {
-        dPrint(".......... iOS - NXP Chip");
-        _nfcChipType = NFCChipType.NXP;
-      } else if (tagData.keys.contains("mifareultralight")) {
-        dPrint(".......... Android - NXP Chip");
-        _nfcChipType = NFCChipType.NXP;
-      } else {
-        dPrint("Unknown Chip - ${tagData[0].key}");
-        _nfcChipType = NFCChipType.Unidentified;
-      }
+      _nfcChipType = _identifyNfcChip(tagData.keys);
 
-      //dPrint('NFC Tag Detected: ${tag.data}');
+      // for(var entry in tagData.entries) 
+      // {
+      //   log.i("${entry.key} : ${entry.value}");
+      // }
 
-      for(var entry in tagData.entries) {
-        dPrint("${entry.key} : ${entry.value}");
-      }
+      switch(_nfcChipType)
+      {
+        case NFCChipType.NXP_IOS:
+        break;
 
-      if(_nfcChipType == NFCChipType.ST) {
-        var stTag = Iso15693.from(tag);
+        case NFCChipType.NXP_ANDROID:
+        break;
 
-        var requestFlagsForRead = <Iso15693RequestFlag>{};
-        requestFlagsForRead.add(Iso15693RequestFlag.highDataRate);
+        case NFCChipType.ST_IOS:
+        {
+          var stTag = Iso15693.from(tag);
 
-        var requestFlagsForPwdAuth = <Iso15693RequestFlag>{};
-        requestFlagsForPwdAuth.add(Iso15693RequestFlag.highDataRate);
+          if(stTag == null) 
+          {
+            log.e("Tag found null");
+          } 
+          else 
+          {
+            IosSt iOSStHandler = IosSt(tag: stTag);
 
-        // Uint8List? response = await stTag?.extendedReadSingleBlock(requestFlags: requestFlags, blockNumber: 5);
+            bool passwordResult = await iOSStHandler.passwordAuthentication();
 
-        // if(response != null){
-        //   for(var item in response) {
-        //     dPrint(" $item");
-        //     }
-        // }
+            if(passwordResult == true)
+            {
+              bool readResult = await iOSStHandler.readData();
 
-        // List<Uint8List>? readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlags, blockNumber: 4, numberOfBlocks: 4);
-        // dPrint(readData.toString());
+              if(readResult == false)
+              {
+                log.e("iOS ST - Read didn't work");
+              }
+              else
+              {
+                bool writeResult = await iOSStHandler.writeDataAndVerify();
 
-        //Password calculated for ADCS - 12223611000488
-        //
-        Uint8List feedPassword = Uint8List.fromList([0x01, 0x55, 0xAA, 0x55, 0xAA, 0x9C, 0xDE, 0x2C, 0x74]);
-        int pwdCommandCode = 0xB3;
-
-        try {
-          Uint8List? pwdResponse = await stTag?.customCommand(requestFlags: requestFlagsForPwdAuth, customCommandCode: pwdCommandCode, customRequestParameters: feedPassword);
-          // dPrint("Password acepted, response:  ${pwdResponse.toString()}");
-
-          try {
-            Uint8List writeData01 = Uint8List(4);
-            writeData01[0] = 0xBB;
-            writeData01[1] = 0xBB;
-            writeData01[2] = 0xCC;
-            writeData01[3] = 0xCC;
-
-            int writeDataStartAddress = 20;
-
-            Set<Iso15693RequestFlag> requestFlagsForWrite = {};
-            requestFlagsForWrite.add(Iso15693RequestFlag.highDataRate);
-            // requestFlagsForWrite.add(Iso15693RequestFlag.address);
-            // requestFlagsForWrite.add(Iso15693RequestFlag.option);
-
-            List<Uint8List> writeData03 = [];
-            
-            for(int i = 0; i< 4; i++) {
-              writeData03.add(writeData01);
+                if(writeResult == false)
+                {
+                  log.e("iOS ST - Write didn't work");  
+                }
+                else
+                {
+                  log.i("iOS ST - ALL DONE!");
+                }
+              }
             }
-
-            int noOfBlocksToWrite = 300;
-
-            Stopwatch writeTimer = Stopwatch()..start();
-            // for(int i = 0; i < noOfBlocksToWrite; i++) {
-            //   await stTag?.extendedWriteSingleBlock(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, dataBlock: writeData01);
-
-            //   writeDataStartAddress++;
-            // }
-
-            int totalBytesWritten =0;
-            for(totalBytesWritten = 0; totalBytesWritten < 1216; totalBytesWritten +=16 ) {
-              await stTag?.extendedWriteMultipleBlocks(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, numberOfBlocks: writeData03.length, dataBlocks: writeData03);
+            else
+            {
+              log.e("iOS ST - PWD didn't work");
             }
-            totalBytesWritten-=16;
-
-            writeTimer.stop();
-            dPrint("It took ${writeTimer.elapsedMilliseconds}ms to write $totalBytesWritten bytes");
-
-            List<Uint8List>? readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: 20, numberOfBlocks: writeData03.length);
-            dPrint(readData.toString());
-
-
-            //await stTag?.writeMultipleBlocks(requestFlags: requestFlagsForWrite, blockNumber: writeDataStartAddress, numberOfBlocks: writeData03.length, dataBlocks: writeData03);
-
-            // try {
-
-            //   int blocksToReadAtOnce = 60;
-            //   int totalBlocksToRead = 480;
-            //   int readIterationsRequired = (totalBlocksToRead ~/ blocksToReadAtOnce);   //This is the Flutter way to convert decimal division result into int
-
-            //   List<Uint8List>? readBuffer = [];
-            //   List<Uint8List>? readData = [];
-              
-            //   Stopwatch readTimer = Stopwatch()..start();
-
-            //   for(int i=0; i<readIterationsRequired; i++){
-            //     readData = await stTag?.extendedReadMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: blocksToReadAtOnce);
-            //     writeDataStartAddress += blocksToReadAtOnce;
-
-            //     if(readData != null){
-            //       readBuffer.addAll(readData.toList());
-            //     }
-            //   }
-            //   readTimer.stop();
-            //   dPrint("It took ${readTimer.elapsedMilliseconds}ms to read ${readBuffer.length * 4} bytes");
-
-            //   //List<Uint8List>? readData = await stTag?.readMultipleBlocks(requestFlags: requestFlagsForRead, blockNumber: writeDataStartAddress, numberOfBlocks: 1);
-
-            //   //dPrint(readData.toString());
-            // } catch (e) {
-            //   dPrint("Exception during readback - ${e.toString()}");  
-            // }
-
-            } catch (e) {
-              dPrint("Exception during write - ${e.toString()}");
-            }
-
-          } catch(e) {
-
-          if(e.toString().contains("Tag response error")) {
-            dPrint("Incorrect PWD");
-          } else {
-            dPrint("Unhandled exception in Pwd Auth -  ${e.toString()}");
           }
-
         }
+        break;
 
-        //List<Uint8> adcsData = [];
-        // Uint8List adcsData = Uint8List(4);
+        case NFCChipType.ST_ANDROID:
+        {
+          var stTag = NfcV.from(tag);
 
-        // if(readData != null) {
+          if(stTag == null) 
+          {
+            log.e("Tag found null");
+          } 
+          else 
+          {
+            AndroidSt androidStHandler = AndroidSt(tag: stTag);
 
-        //   for(int i = 0; i < readData.length; i++) {
-        //     adcsData.insertAll(0, readData[i]);
-        //   }
+            bool readResult = await androidStHandler.readData();
 
-        //   dPrint("adcsData = ${adcsData.buffer}");
+            if(readResult == false)
+            {
+              log.e("Android ST - Read didn't work");
+            }
+          }
+        }
+        
 
-        // }
+        break;
+
+        case NFCChipType.Unidentified:
+          //intentional fall-through
+        default:
+        log.i("Can't process an unknown tag type.");
+        break;
       }
-
-    } catch (e) {
-      debugPrint('Error reading NFC: $e');
     }
-    
+    catch (e)
+    {
+      log.e("EXPTN ${e.toString()} in iOSSt");
+    }
   }
 
   Future<void> _writeToTag(
@@ -297,11 +241,13 @@ class NFCNotifier extends ChangeNotifier {
     }
   }
 
-  void dPrint(String message) {
+  void dPrint(String message) 
+  {
     debugPrint(message);
   }
 }
 
+
 enum NFCOperation { read, write }
 
-enum NFCChipType {Unidentified, ST, NXP}
+enum NFCChipType {Unidentified, ST_IOS, ST_ANDROID, NXP_IOS, NXP_ANDROID}

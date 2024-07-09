@@ -12,49 +12,40 @@ class ReadWriteNFCScreen extends StatelessWidget {
       create: (context) => NFCNotifier(),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("NFC READ/WRITE"),
+          title: const Text("WR Connect - Flutter Eval"),
         ),
         body: Builder(
           builder: (BuildContext context) {
             return Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.end,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  MaterialButton(
+                    height: 70.0,
+                    minWidth: 240.0,
+                    color: Theme.of(context).primaryColor,
+                    textColor: Colors.white,
+                    splashColor: Colors.redAccent,
+                    onPressed: () {
+                      scanningDialog(context);
+                      Provider.of<NFCNotifier>(context, listen: false)
+                          .startNFCOperation(nfcOperation: NFCOperation.read);
+                    },
+                    child: const Text(
+                      "Moment of Truth",
+                      style: TextStyle(fontSize: 24.0),),),
+
+                  const SizedBox(height: 20.0,),
+
                   ElevatedButton(
                       onPressed: () {
-                        scanningDialog(context);
-                        Provider.of<NFCNotifier>(context, listen: false)
-                            .startNFCOperation(nfcOperation: NFCOperation.read);
+                        showResultDialog(context, "Why did you do that?");
                       },
-                      child: const Text("READ NFC")),
-                  ElevatedButton(
-                      onPressed: () {
-                        scanningDialog(context);
-                        Provider.of<NFCNotifier>(context, listen: false)
-                            .startNFCOperation(
-                                nfcOperation: NFCOperation.write,
-                                dataType: "URL");
-                      },
-                      child: const Text("WRITE NFC URL")),
-                  ElevatedButton(
-                      onPressed: () {
-                        scanningDialog(context);
-                        Provider.of<NFCNotifier>(context, listen: false)
-                            .startNFCOperation(
-                                nfcOperation: NFCOperation.write,
-                                dataType: "MAIL");
-                      },
-                      child: const Text("WRITE NFC EMAIL")),
-                  ElevatedButton(
-                      onPressed: () {
-                        scanningDialog(context);
-                        Provider.of<NFCNotifier>(context, listen: false)
-                            .startNFCOperation(
-                                nfcOperation: NFCOperation.write,
-                                dataType: "CONTACT");
-                      },
-                      child: const Text("WRITE NFC CONTACT")),
+                      child: const Text("Just don't press this one")),
+
+                  const SizedBox(height: 70.0,),
+
                   Consumer<NFCNotifier>(builder: (context, provider, _) {
                     if (provider.isProcessing) {
                       return const CircularProgressIndicator();

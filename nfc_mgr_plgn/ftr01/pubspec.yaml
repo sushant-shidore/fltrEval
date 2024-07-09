@@ -34,10 +34,13 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
+  # nfc_manager-3.5.0 is locally imported into the project structure, as some of the NFC APIs were not avaiable and had to be added
+  # refer this link to find out procedure to include a plugin locally: https://youtu.be/Tms6TUIQVzE?si=_dfrcgAtO_l4wIAI
   cupertino_icons: ^1.0.6
   nfc_manager: 
     path: nfc_manager-3.5.0
   provider: ^6.1.2
+  logger: ^2.3.0
 
 dev_dependencies:
   flutter_test:
