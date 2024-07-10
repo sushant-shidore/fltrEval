@@ -35,36 +35,36 @@ class AndroidSt
               // Password Bytes - will be added later
       ];
 
-      try
+    try
+    {
+      //As part of the command, insert 'Uid' at index 2
+      //
+      pwdCmdBytes.insertAll(3, _stTag!.identifier);
+
+      //Put the password at the end of the command
+      //
+      pwdCmdBytes.addAll(feedPassword);
+
+      Uint8List pwdCommand = Uint8List.fromList(pwdCmdBytes);
+
+      Uint8List pwdResponse = await _stTag!.transceive(data: pwdCommand);
+
+      if(pwdResponse.first == 0x00)
       {
-        //As part of the command, insert 'Uid' at index 2
+        //This means password fed was correct and the authentication is successful
         //
-        pwdCmdBytes.insertAll(3, _stTag!.identifier);
-
-        //Put the password at the end of the command
-        //
-        pwdCmdBytes.addAll(feedPassword);
-
-        Uint8List pwdCommand = Uint8List.fromList(pwdCmdBytes);
-
-        Uint8List pwdResponse = await _stTag!.transceive(data: pwdCommand);
-
-        if(pwdResponse.first == 0x00)
-        {
-          //This means password fed was correct and the authentication is successful
-          //
-          result = true;
-          log.i("Pwd Auth Successful");
-        }
-        else
-        {
-          log.e("Pwd Cmd Response failed - ${pwdResponse.first.toRadixString(16) ..padLeft(2) ..toUpperCase()}}");
-        }
+        result = true;
+        log.i("Pwd Auth Successful");
       }
-      catch(e)
+      else
       {
-        log.e("EXPTN in Android ST Pwd - ${e.toString()}");
+        log.e("Pwd Cmd Response failed - ${pwdResponse.first.toRadixString(16) ..padLeft(2) ..toUpperCase()}}");
       }
+    }
+    catch(e)
+    {
+      log.e("EXPTN in Android ST Pwd - ${e.toString()}");
+    }
 
 
     return result;
@@ -73,6 +73,91 @@ class AndroidSt
   Future<bool> writeDataAndVerify() async
   {
     bool result = false;
+    int writeDataStartAddress = 20;
+    int blocksCanBeWrittenAtOnce = 4;
+    int bytesInAblock = 4;
+    int totalBlocksToWrite = 300;
+
+    List<Uint8List> writeCommands = List.empty(growable: true);
+
+    int writeIterationsRequired = totalBlocksToWrite ~/ blocksCanBeWrittenAtOnce;
+    
+    //Fill dummy data to write
+    //
+    Uint8List blockDataToWrite = Uint8List(blocksCanBeWrittenAtOnce * bytesInAblock);
+    blockDataToWrite.fillRange(0, blockDataToWrite.length, 0x5A);
+
+    try
+    {
+      //First prepare all 'block write' commands at once
+      //
+      for(int i=0; i < writeIterationsRequired; i++)
+      {
+        List<int> writeCmdBytes = <int>[
+          0x22,   // Flags (addressed)
+          0x34,   // Extended Write Multiple Blocks Command
+                  // UID - will be added later
+          (writeDataStartAddress & 0x00FF),         //Address LSByte
+          ((writeDataStartAddress >> 8) & 0x00FF),   //Address MSByte
+          ((blocksCanBeWrittenAtOnce - 1) & 0x00FF),         //No of Blocks LSByte - (one less than intended block write as per datasheet)
+          (((blocksCanBeWrittenAtOnce - 1) >> 8) & 0x00FF)   //No of Blocks MSByte - (one less than intended block write as per datasheet)
+        ];
+
+        //As part of the command, insert 'Uid' at index 2
+        //
+        writeCmdBytes.insertAll(2, _stTag!.identifier);
+        
+        //Add bytes to be written
+        //
+        writeCmdBytes.addAll(blockDataToWrite);
+
+        //log.i("writeCommand #${(i + 1).toString().padLeft(2, '0')}: ${helper.getHexofListUint(writeCmdBytes)}");
+
+        Uint8List writeCommand = Uint8List.fromList(writeCmdBytes);
+
+        writeCommands.add(writeCommand);
+        writeDataStartAddress += blocksCanBeWrittenAtOnce;
+      }
+
+      //Now send the commands one-by-one. It should be efficient now and will give more accurate write timing
+      //
+      Stopwatch writeTimer = Stopwatch()..start();
+      
+      for(int i=0; i < writeCommands.length; i++)
+      {
+        Uint8List writeResponse = await _stTag!.transceive(data: writeCommands[i]);
+
+        if(writeResponse.first == 0x00)
+        {
+          //First byte in response of Transceive command denotes success/failure. 0x00 means success
+          //
+          result = true;
+        }
+        else
+        {
+          result = false;
+
+          log.e("Android ST Write Failed, RESP: ${writeResponse[0]}");
+          break;
+        }
+      }
+
+      if(result == true)
+      {
+        writeTimer.stop();
+        log.i("It took ${writeTimer.elapsedMilliseconds}ms to write ${(totalBlocksToWrite * bytesInAblock)} bytes");
+      }
+      else
+      {
+        //Operation has failed, so no point in printing timing
+      }
+    }
+    catch(e)
+    {
+      log.e("EXPTN in Android ST Write - ${e.toString()}");
+
+      result = false;
+    }
 
     return result;
   }
@@ -139,14 +224,23 @@ class AndroidSt
         }
         else
         {
+          result = false;
+
           log.e("Android ST Read Failed, RESP: ${readData[0]}");
           break;
         }
       }
 
-      readTimer.stop();
-      log.i("It took ${readTimer.elapsedMilliseconds}ms to read ${readBuffer.length} bytes");
-      // log.i("Data Read: ${helper.getHexofListUint(readBuffer)}");
+      if(result == true)
+      {
+        readTimer.stop();
+        log.i("It took ${readTimer.elapsedMilliseconds}ms to read ${readBuffer.length} bytes");
+        // log.i("Data Read: ${helper.getHexofListUint(readBuffer)}");
+      }
+      else
+      {
+        //Operation has failed, so no point in printing timing
+      }
     }
     catch(e)
     {

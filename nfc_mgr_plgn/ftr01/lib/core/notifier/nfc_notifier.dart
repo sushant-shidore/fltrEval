@@ -187,6 +187,19 @@ class NFCNotifier extends ChangeNotifier
               {
                 log.e("Android ST - Pwd Auth didn't work");
               }
+              else
+              {
+                bool writeResult = await androidStHandler.writeDataAndVerify();
+
+                if(writeResult == false)
+                {
+                  log.e("Android ST - Write didn't work");
+                }
+                else
+                {
+                  log.i("Android ST - All Done!");
+                }
+              }
             }
           }
         }
