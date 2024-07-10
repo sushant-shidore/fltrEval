@@ -22,6 +22,51 @@ class AndroidSt
   {
     bool result = false;
 
+    //Password calculated for ADCS - 12223611000488
+    //
+    Uint8List feedPassword = Uint8List.fromList([0x01, 0x55, 0xAA, 0x55, 0xAA, 0x9C, 0xDE, 0x2C, 0x74]);
+
+    List<int> pwdCmdBytes = <int>[
+      0x22,   // Flags (addressed)
+      0xB3,   // Present Password Command
+      0x02,   // 'Tag No' - ST has its code as '2'
+              // UID - will be added later
+              // Protected area - will be added later
+              // Password Bytes - will be added later
+      ];
+
+      try
+      {
+        //As part of the command, insert 'Uid' at index 2
+        //
+        pwdCmdBytes.insertAll(3, _stTag!.identifier);
+
+        //Put the password at the end of the command
+        //
+        pwdCmdBytes.addAll(feedPassword);
+
+        Uint8List pwdCommand = Uint8List.fromList(pwdCmdBytes);
+
+        Uint8List pwdResponse = await _stTag!.transceive(data: pwdCommand);
+
+        if(pwdResponse.first == 0x00)
+        {
+          //This means password fed was correct and the authentication is successful
+          //
+          result = true;
+          log.i("Pwd Auth Successful");
+        }
+        else
+        {
+          log.e("Pwd Cmd Response failed - ${pwdResponse.first.toRadixString(16) ..padLeft(2) ..toUpperCase()}}");
+        }
+      }
+      catch(e)
+      {
+        log.e("EXPTN in Android ST Pwd - ${e.toString()}");
+      }
+
+
     return result;
   }
 

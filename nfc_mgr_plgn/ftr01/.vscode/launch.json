@@ -1,0 +1,45 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "ftr01",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "ftr01 (profile mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "ftr01 (release mode)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "nfc_manager-3.5.0",
+            "cwd": "nfc_manager-3.5.0",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "nfc_manager-3.5.0 (profile mode)",
+            "cwd": "nfc_manager-3.5.0",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "nfc_manager-3.5.0 (release mode)",
+            "cwd": "nfc_manager-3.5.0",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        }
+    ]
+}

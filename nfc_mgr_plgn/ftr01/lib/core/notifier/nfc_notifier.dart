@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:ftr01/constants.dart';
 import 'package:ftr01/core/notifier/android_st.dart';
 import 'package:ftr01/logging.dart';
 import 'package:nfc_manager/nfc_manager.dart';
@@ -15,7 +16,7 @@ class NFCNotifier extends ChangeNotifier
   final log = logger(NFCNotifier);
   bool _isProcessing = false;
   String _message = "";
-  NFCChipType _nfcChipType = NFCChipType.Unidentified;
+  NFCChipType _nfcChipType = NFCChipType.unidentified;
 
   bool get isProcessing => _isProcessing;
 
@@ -73,23 +74,23 @@ class NFCNotifier extends ChangeNotifier
 
   NFCChipType _identifyNfcChip(Iterable<String> nfcType) {
 
-      NFCChipType nfcChipIdentified = NFCChipType.Unidentified;
+      NFCChipType nfcChipIdentified = NFCChipType.unidentified;
 
       if (nfcType.contains("iso15693")){
         log.i(".......... iOS - ST Chip");
-        nfcChipIdentified = NFCChipType.ST_IOS;
+        nfcChipIdentified = NFCChipType.stIos;
       } else if (nfcType.contains("nfcv")) {
         log.i(".......... Android - ST Chip");
-        nfcChipIdentified = NFCChipType.ST_ANDROID;
+        nfcChipIdentified = NFCChipType.stAndroid;
       }else if (nfcType.contains("mifare")) {
         log.i(".......... iOS - NXP Chip");
-        nfcChipIdentified = NFCChipType.NXP_IOS;
+        nfcChipIdentified = NFCChipType.nxpIos;
       } else if (nfcType.contains("mifareultralight")) {
         log.i(".......... Android - NXP Chip");
-        nfcChipIdentified = NFCChipType.NXP_ANDROID;
+        nfcChipIdentified = NFCChipType.nxpAndroid;
       } else {
         log.e("Unknown Chip - $nfcType");
-        nfcChipIdentified = NFCChipType.Unidentified;
+        nfcChipIdentified = NFCChipType.unidentified;
       }
 
       return nfcChipIdentified;
@@ -110,13 +111,13 @@ class NFCNotifier extends ChangeNotifier
 
       switch(_nfcChipType)
       {
-        case NFCChipType.NXP_IOS:
+        case NFCChipType.nxpIos:
         break;
 
-        case NFCChipType.NXP_ANDROID:
+        case NFCChipType.nxpAndroid:
         break;
 
-        case NFCChipType.ST_IOS:
+        case NFCChipType.stIos:
         {
           var stTag = Iso15693.from(tag);
 
@@ -160,7 +161,7 @@ class NFCNotifier extends ChangeNotifier
         }
         break;
 
-        case NFCChipType.ST_ANDROID:
+        case NFCChipType.stAndroid:
         {
           var stTag = NfcV.from(tag);
 
@@ -178,13 +179,22 @@ class NFCNotifier extends ChangeNotifier
             {
               log.e("Android ST - Read didn't work");
             }
+            else
+            {
+              bool pwdResult = await androidStHandler.passwordAuthentication();
+
+              if(pwdResult == false)
+              {
+                log.e("Android ST - Pwd Auth didn't work");
+              }
+            }
           }
         }
         
 
         break;
 
-        case NFCChipType.Unidentified:
+        case NFCChipType.unidentified:
           //intentional fall-through
         default:
         log.i("Can't process an unknown tag type.");
@@ -240,14 +250,9 @@ class NFCNotifier extends ChangeNotifier
         return const NdefMessage([]);
     }
   }
-
-  void dPrint(String message) 
-  {
-    debugPrint(message);
-  }
 }
 
 
 enum NFCOperation { read, write }
 
-enum NFCChipType {Unidentified, ST_IOS, ST_ANDROID, NXP_IOS, NXP_ANDROID}
+
