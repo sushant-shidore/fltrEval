@@ -5,15 +5,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ftr01/constants.dart';
+import 'package:ftr01/helper.dart';
+
 import 'package:ftr01/core/notifier/android_st.dart';
+import 'package:ftr01/core/notifier/ios_st.dart';
+import 'package:ftr01/core/notifier/ios_nxp.dart';
 import 'package:ftr01/logging.dart';
 import 'package:nfc_manager/nfc_manager.dart';
 import 'package:nfc_manager/platform_tags.dart';
-import 'package:ftr01/core/notifier/ios_st.dart';
+
+
 
 class NFCNotifier extends ChangeNotifier 
 {
   final log = logger(NFCNotifier);
+  final helper = Helper();
   bool _isProcessing = false;
   String _message = "";
   NFCChipType _nfcChipType = NFCChipType.unidentified;
@@ -112,6 +118,35 @@ class NFCNotifier extends ChangeNotifier
       switch(_nfcChipType)
       {
         case NFCChipType.nxpIos:
+        {
+          var nxpTag = MiFare.from(tag);
+
+          if(nxpTag == null)
+          {
+            log.e("Tag found null");
+          }
+          else
+          {
+            IosNxp iOSNxpHandler = IosNxp(tag: nxpTag);
+
+            Uint8List adcs = await iOSNxpHandler.readADCS();
+
+            log.i("ADCS Read - ${helper.getHexOfUint8List(adcs)}");
+
+            bool passwordResult = await iOSNxpHandler.passwordAuthentication();
+
+            if(passwordResult == true)
+            {
+
+            }
+            else
+            {
+              log.e("iOS NXP - PWD didn't work");
+            }
+
+            //syrup, thyroid, 
+          }
+        }
         break;
 
         case NFCChipType.nxpAndroid:

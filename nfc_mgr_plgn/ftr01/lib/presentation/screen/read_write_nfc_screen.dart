@@ -43,7 +43,7 @@ class ReadWriteNFCScreen extends StatelessWidget {
 
                   const Text("Flutter Eval", style: TextStyle(fontSize: 18.0),),
 
-                  const SizedBox(height: 300.0,),
+                  const SizedBox(height: 100.0,),
 
                   MaterialButton(
                     height: 70.0,
