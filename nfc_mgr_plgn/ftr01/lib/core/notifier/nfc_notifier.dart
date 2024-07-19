@@ -133,18 +133,47 @@ class NFCNotifier extends ChangeNotifier
 
             log.i("ADCS Read - ${helper.getHexOfUint8List(adcs)}");
 
+            Stopwatch readTimer = Stopwatch()..start();
+
             bool passwordResult = await iOSNxpHandler.passwordAuthentication();
 
             if(passwordResult == true)
             {
+              bool s0ReadResult = await iOSNxpHandler.readSector0Data();
 
+              if(s0ReadResult == true)
+              {
+                bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch();
+
+                if(sectorSwitchResult == true)
+                {
+                  bool s1ReadResult = await iOSNxpHandler.readSector1Data();
+
+                  if(s1ReadResult == true)
+                  {
+                    log.i("It took ${readTimer.elapsedMilliseconds}ms to read S0 & S1");
+                  }
+                  else
+                  {
+                    log.e("iOS NXP - S1 Read didn't work");
+                  }
+                }
+                else
+                {
+                  log.e("iOS NXP - Sector Switch didn't work");  
+                }
+              }
+              else
+              {
+                log.e("iOS NXP - S0 Read didn't work");
+              }
             }
             else
             {
               log.e("iOS NXP - PWD didn't work");
             }
 
-            //syrup, thyroid, 
+            readTimer.stop(); 
           }
         }
         break;
