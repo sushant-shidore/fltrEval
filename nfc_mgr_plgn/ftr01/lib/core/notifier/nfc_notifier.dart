@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ftr01/constants.dart';
+import 'package:ftr01/core/notifier/android_nxp.dart';
 import 'package:ftr01/helper.dart';
 
 import 'package:ftr01/core/notifier/android_st.dart';
@@ -185,6 +186,64 @@ class NFCNotifier extends ChangeNotifier
         break;
 
         case NFCChipType.nxpAndroid:
+        {
+          var nxpTag = MifareUltralight.from(tag);
+
+          if(nxpTag == null)
+          {
+            log.e("Tag found null");
+          }
+          else
+          {
+            AndroidNxp androidNxpHandler = AndroidNxp(tag: nxpTag);
+
+            Uint8List adcs = await androidNxpHandler.readADCS();
+
+            log.i("ADCS Read - ${helper.getHexOfUint8List(adcs)}");
+
+            Stopwatch readTimer = Stopwatch()..start();
+
+            bool passwordResult = await androidNxpHandler.passwordAuthentication();
+
+            if(passwordResult == true)
+            {
+              bool s0ReadResult = await androidNxpHandler.readSector0Data();
+
+              if(s0ReadResult == true)
+              {
+                bool sectorSwitchResult = await androidNxpHandler.sectorSwitch(NXP_SEC1_ID);
+
+                if(sectorSwitchResult == true)
+                {
+                  bool s1ReadResult = await androidNxpHandler.readSector1Data();
+
+                  if(s1ReadResult == true)
+                  {
+                    log.i("It took ${readTimer.elapsedMilliseconds}ms to read S0 & S1");
+                  }
+                  else
+                  {
+                    log.e("Android NXP - S1 Read didn't work");
+                  }
+                }
+                else
+                {
+                  log.e("Android NXP - Sector Switch didn't work");  
+                }
+              }
+              else
+              {
+                log.e("Android NXP - S0 Read didn't work");
+              }
+            }
+            else
+            {
+              log.e("Android NXP Read - PWD didn't work");
+            }
+
+            readTimer.stop(); 
+          }
+        }
         break;
 
         case NFCChipType.stIos:
@@ -286,7 +345,7 @@ class NFCNotifier extends ChangeNotifier
     }
     catch (e)
     {
-      log.e("EXPTN ${e.toString()} in iOSSt");
+      log.e("EXPTN ${e.toString()} in _readFromTag");
     }
   }
 
@@ -296,81 +355,87 @@ class NFCNotifier extends ChangeNotifier
 
     _nfcChipType = _identifyNfcChip(tagData.keys);
 
-    switch(_nfcChipType)
+    try
     {
-      case NFCChipType.nxpIos:
+      switch(_nfcChipType)
       {
-        var nxpTag = MiFare.from(tag);
-
-        if(nxpTag == null)
+        case NFCChipType.nxpIos:
         {
-          log.e("Tag found null");
-        }
-        else
-        {
-          IosNxp iOSNxpHandler = IosNxp(tag: nxpTag);
-          
-          Stopwatch writeTimer = Stopwatch()..start();
+          var nxpTag = MiFare.from(tag);
 
-          bool passwordResult = await iOSNxpHandler.passwordAuthentication();
-          
-          if(passwordResult == true)
+          if(nxpTag == null)
           {
-            bool sec0WriteResult = await iOSNxpHandler.writeSector0Data();
+            log.e("Tag found null");
+          }
+          else
+          {
+            IosNxp iOSNxpHandler = IosNxp(tag: nxpTag);
 
-            if(sec0WriteResult == true)
+            Stopwatch writeTimer = Stopwatch()..start();
+
+            bool passwordResult = await iOSNxpHandler.passwordAuthentication();
+            
+            if(passwordResult == true)
             {
-              bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch(NXP_SEC1_ID);
+              bool sec0WriteResult = await iOSNxpHandler.writeSector0Data();
 
-              if(sectorSwitchResult == true)
+              if(sec0WriteResult == true)
               {
-                bool sec1WriteResult = await iOSNxpHandler.writeSector1Data();
+                bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch(NXP_SEC1_ID);
 
-                if(sec1WriteResult == true)
+                if(sectorSwitchResult == true)
                 {
-                  log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+                  bool sec1WriteResult = await iOSNxpHandler.writeSector1Data();
+
+                  if(sec1WriteResult == true)
+                  {
+                    log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+                  }
+                  else
+                  {
+                    log.e("iOS NXP - S1 Write didn't work");
+                  }
                 }
                 else
                 {
-                  log.e("iOS NXP - S1 Write didn't work");
+                  log.e("iOS NXP Write - Sector Switch 1 didn't work");  
                 }
               }
               else
               {
-                log.e("iOS NXP Write - Sector Switch 1 didn't work");  
+                log.e("iOS NXP - S0 Write didn't work");
               }
+
+              writeTimer.stop();
             }
             else
             {
-              log.e("iOS NXP - S0 Write didn't work");
+              log.e("iOS NXP Write - PWD didn't work");
             }
-
-            writeTimer.stop();
-          }
-          else
-          {
-            log.e("iOS NXP Write - PWD didn't work");
           }
         }
+        break;
+
+        case NFCChipType.nxpAndroid:
+        break;
+
+        case NFCChipType.stIos:
+        break;
+
+        case NFCChipType.stAndroid:
+        break;
+
+        case NFCChipType.unidentified:
+          //intentional fall-through
+        default:
+          log.i("Can't process an unknown tag type.");
+        break;
       }
-      break;
-
-      case NFCChipType.nxpAndroid:
-      break;
-
-      case NFCChipType.stIos:
-      break;
-
-      case NFCChipType.stAndroid:
-      break;
-
-      case NFCChipType.unidentified:
-        //intentional fall-through
-      default:
-        log.i("Can't process an unknown tag type.");
-      break;
     }
-
+    catch (e)
+    {
+      log.e("EXPTN ${e.toString()} in _writeToTag");
+    }
   }
 
   NdefMessage _createNdefMessage({required String dataType}) {

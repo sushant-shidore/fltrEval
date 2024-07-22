@@ -16,7 +16,7 @@ class ReadWriteNFCScreen extends StatelessWidget {
     bool isIOS = (Theme.of(context).platform == TargetPlatform.iOS);
     final log = logger(ReadWriteNFCScreen);
 
-    isIOS ? log.i("Runing on iPhone") : log.i("Runing on Android");
+    isIOS ? log.i("iPhone") : log.i("Android");
 
     return ChangeNotifierProvider(
       create: (context) => NFCNotifier(),
@@ -42,6 +42,10 @@ class ReadWriteNFCScreen extends StatelessWidget {
                   const SizedBox(height: 20.0,),
 
                   const Text("Flutter Eval", style: TextStyle(fontSize: 18.0),),
+
+                  const SizedBox(height: 20.0,),
+
+                  const Text("Test only on controls \nwith GPB f/w", textAlign: TextAlign.center, style: TextStyle(fontSize: 14.0, color: Colors.redAccent),),
 
                   const SizedBox(height: 100.0,),
 
