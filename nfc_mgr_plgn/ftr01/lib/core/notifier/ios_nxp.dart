@@ -31,7 +31,7 @@ class IosNxp
     {
       Uint8List rxData = await _nxpTag!.sendMiFareCommand(command);
 
-      if(rxData.contains(0x12) && rxData.contains(0xED))
+      if(rxData.contains(NXP_CORRECT_PWD_ACK_BYTE_01) && rxData.contains(NXP_CORRECT_PWD_ACK_BYTE_02))
       {
         log.i("PWD Worked");
 
@@ -64,7 +64,6 @@ class IosNxp
     int pagesToReadInLastIteration = ((endAddress - startAddress) % pagesToReadAtOnce);
 
     List<int> readBuffer = List.empty(growable: true);
-
 
     try
     {
@@ -138,7 +137,7 @@ class IosNxp
 
         if(result == true)
         {
-          log.i("S0 Total pages read - $totalPagesRead") ;
+          log.i("S0 Pages read - $totalPagesRead") ;
           // log.i("iOS NXP S0 Data Read - ${helper.getHexofListUint(readBuffer)}");
         }
       }
@@ -153,7 +152,7 @@ class IosNxp
     return result;
   }
 
-  Future<bool> sectorSwitch() async 
+  Future<bool> sectorSwitch(int sectorNumber) async 
   {
     bool result = false;
 
@@ -165,11 +164,11 @@ class IosNxp
 
       if((pkt01Rx.length == 1) && (pkt01Rx.contains(NXP_CMD_ACK)))
       {
-        log.i("SSwitch Pkt 01 Worked");
+        //log.i("SSwitch Pkt 01 Worked");
 
         //Move on to Pkt 02
         //
-        Uint8List pkt02Command = Uint8List.fromList([0x01, 0x00, 0x00, 0x00]);
+        Uint8List pkt02Command = Uint8List.fromList([sectorNumber, 0x00, 0x00, 0x00]);
         
         Uint8List pkt02Rx = await _nxpTag!.sendMiFareCommand(pkt02Command);
 
@@ -178,7 +177,7 @@ class IosNxp
           //For this command, NFC chip doesn't send any data in response which is referred to as
           //'Passive ACK' in the datasheet.
           //
-          log.i("SSwitch Pkt 02 Worked");
+          // log.i("SSwitch Pkt 02 Worked");
           
           //Now we need to confirm if sector 1 is really active, otherwise r/w which will be attempted
           //thereafter will fail. So better to be safe than sorry.
@@ -202,13 +201,29 @@ class IosNxp
           {
             //Chip has responded with a NAK, which means sector 0 is active
             //
-            log.e("SEC 0 Active");
-            result = false;
+            // log.i("SEC 0 Active");
+
+            if(sectorNumber == NXP_SEC1_ID)
+            {
+              result = false;
+            }
+            else
+            {
+              result = true;
+            }
           }
           else
           {
-            log.i("SEC 1 switch confirmed");
-            result = true;
+            // log.i("SEC 1 Active");
+            
+            if(sectorNumber == NXP_SEC1_ID)
+            {
+              result = true;
+            }
+            else
+            {
+              result = false;
+            }
           }
         }
         else
@@ -320,7 +335,7 @@ class IosNxp
 
         if(result == true)
         {
-          log.i("S1 Total pages read - $totalPagesRead");
+          log.i("S1 Pages read - $totalPagesRead");
           // log.i("iOS NXP S0 Data Read - ${helper.getHexofListUint(readBuffer)}");
         }
       }
@@ -339,9 +354,40 @@ class IosNxp
   {
     bool result = false;
 
+    int startAddress = GPB_S0_DATA_PAGE_START_ADDRESS;
+    int endAddress = GPB_S0_DATA_PAGE_END_ADDRESS;
+
     try
     {
+      for(int currentWriteAddress = startAddress; currentWriteAddress < endAddress; currentWriteAddress++)
+      {
+        var dataWriteCommand = Uint8List.fromList([0xA2, currentWriteAddress, 0xA5, 0xA5, 0xA5, 0xA5]);
 
+        var rxData = await _nxpTag!.sendMiFareCommand(dataWriteCommand);
+
+        if(rxData.contains(NXP_CMD_ACK) == false)
+        {
+          log.e("iOS NXP Write S0 - Failed at $currentWriteAddress, RX: ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+
+          //No point in continuing with rest of write procedure
+          //
+          break;
+        }
+        else
+        {
+          //Write successful, move on
+          //
+          result = true;
+          continue;
+        }
+      }
+
+      if(result == true)
+      {
+        log.i("Bytes written on S0: ${(endAddress - startAddress + 1) * 4}");
+      }
     }
     catch(e)
     {
@@ -357,9 +403,50 @@ class IosNxp
   {
     bool result = false;
 
+    int startAddress = GPB_S1_DATA_PAGE_START_ADDRESS;
+    
+    //No need to test writing data on the entire sector 1, as on actual controls, roughly 1200 bytes are consumed
+    //For which, sector 0 is consumed entirely which has a capacity of 212 pages * 4 = 848 bytes,
+    //so we can test writing only 352 bytes / 4 = 88 pages
+    //
+    //We can test writing data on the entire sector 1, but it won't give us a precise time duration for write,
+    //which is what we're seeking in the Flutter NFC evaluation exercise
+    //
+
+    //int endAddress = GPB_S1_DATA_PAGE_END_ADDRESS;
+    int endAddress = GPB_S1_DATA_PAGE_START_ADDRESS + 88;
+
     try
     {
+      for(var currentWriteAddress = startAddress; currentWriteAddress < endAddress; currentWriteAddress++)
+      {
+        var dataWriteCommand = Uint8List.fromList([0xA2, currentWriteAddress, 0x5A, 0x5A, 0x5A, 0x5A]);
 
+        var rxData = await _nxpTag!.sendMiFareCommand(dataWriteCommand);
+
+        if(rxData.contains(NXP_CMD_ACK) == false)
+        {
+          log.e("iOS NXP Write S1 - Failed at $currentWriteAddress, RX: ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+
+          //No point in continuing with rest of write procedure
+          //
+          break;
+        }
+        else
+        {
+          //Write successful, move on
+          //
+          result = true;
+          continue;
+        }
+      }
+
+      if(result == true)
+      {
+        log.i("Bytes written on S1: ${(endAddress - startAddress + 1) * 4}");
+      }
     }
     catch(e)
     {

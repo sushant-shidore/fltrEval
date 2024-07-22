@@ -50,18 +50,24 @@ class NFCNotifier extends ChangeNotifier
         pollingOption.add(NfcPollingOption.iso15693);
         pollingOption.add(NfcPollingOption.iso18092);
 
-        NfcManager.instance.startSession(pollingOptions: pollingOption, onDiscovered: (NfcTag nfcTag) async {
-          if (nfcOperation == NFCOperation.read) {
+        NfcManager.instance.startSession(pollingOptions: pollingOption, onDiscovered: (NfcTag nfcTag) async 
+        {
+          if (nfcOperation == NFCOperation.read) 
+          {
             await _readFromTag(tag: nfcTag);
-          } else if (nfcOperation == NFCOperation.write) {
-            await _writeToTag(nfcTag: nfcTag, dataType: dataType);
+          } 
+          else if (nfcOperation == NFCOperation.write) 
+          {
+            await _writeToTag(tag: nfcTag);
             _message = "DONE";
           }
 
           _isProcessing = false;
           notifyListeners();
           await NfcManager.instance.stopSession();
-        }, onError: (e) async {
+        }, 
+        onError: (e) async 
+        {
           _isProcessing = false;
           _message = e.toString();
           notifyListeners();
@@ -143,7 +149,7 @@ class NFCNotifier extends ChangeNotifier
 
               if(s0ReadResult == true)
               {
-                bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch();
+                bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch(NXP_SEC1_ID);
 
                 if(sectorSwitchResult == true)
                 {
@@ -170,7 +176,7 @@ class NFCNotifier extends ChangeNotifier
             }
             else
             {
-              log.e("iOS NXP - PWD didn't work");
+              log.e("iOS NXP Read - PWD didn't work");
             }
 
             readTimer.stop(); 
@@ -274,7 +280,7 @@ class NFCNotifier extends ChangeNotifier
         case NFCChipType.unidentified:
           //intentional fall-through
         default:
-        log.i("Can't process an unknown tag type.");
+          log.i("Can't process an unknown tag type.");
         break;
       }
     }
@@ -284,10 +290,87 @@ class NFCNotifier extends ChangeNotifier
     }
   }
 
-  Future<void> _writeToTag(
-      {required NfcTag nfcTag, required String dataType}) async {
-    NdefMessage message = _createNdefMessage(dataType: dataType);
-    await Ndef.from(nfcTag)?.write(message);
+  Future<void> _writeToTag({required NfcTag tag}) async 
+  {
+    var tagData = {...tag.data};
+
+    _nfcChipType = _identifyNfcChip(tagData.keys);
+
+    switch(_nfcChipType)
+    {
+      case NFCChipType.nxpIos:
+      {
+        var nxpTag = MiFare.from(tag);
+
+        if(nxpTag == null)
+        {
+          log.e("Tag found null");
+        }
+        else
+        {
+          IosNxp iOSNxpHandler = IosNxp(tag: nxpTag);
+          
+          Stopwatch writeTimer = Stopwatch()..start();
+
+          bool passwordResult = await iOSNxpHandler.passwordAuthentication();
+          
+          if(passwordResult == true)
+          {
+            bool sec0WriteResult = await iOSNxpHandler.writeSector0Data();
+
+            if(sec0WriteResult == true)
+            {
+              bool sectorSwitchResult = await iOSNxpHandler.sectorSwitch(NXP_SEC1_ID);
+
+              if(sectorSwitchResult == true)
+              {
+                bool sec1WriteResult = await iOSNxpHandler.writeSector1Data();
+
+                if(sec1WriteResult == true)
+                {
+                  log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+                }
+                else
+                {
+                  log.e("iOS NXP - S1 Write didn't work");
+                }
+              }
+              else
+              {
+                log.e("iOS NXP Write - Sector Switch 1 didn't work");  
+              }
+            }
+            else
+            {
+              log.e("iOS NXP - S0 Write didn't work");
+            }
+
+            writeTimer.stop();
+          }
+          else
+          {
+            log.e("iOS NXP Write - PWD didn't work");
+          }
+        }
+      }
+      break;
+
+      case NFCChipType.nxpAndroid:
+      break;
+
+      case NFCChipType.stIos:
+      break;
+
+      case NFCChipType.stAndroid:
+      break;
+
+      case NFCChipType.unidentified:
+        //intentional fall-through
+      default:
+        log.i("Can't process an unknown tag type.");
+      break;
+    }
+
   }
 
   NdefMessage _createNdefMessage({required String dataType}) {

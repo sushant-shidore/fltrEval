@@ -58,20 +58,34 @@ class ReadWriteNFCScreen extends StatelessWidget {
                           .startNFCOperation(nfcOperation: NFCOperation.read);
                     },
                     child: const Text(
-                      "Moment of Truth",
-                      style: TextStyle(fontSize: 20.0),),),
+                      "READ",
+                      style: TextStyle(fontSize: 24.0),),
+                  ),
 
                   const SizedBox(height: 20.0,),
 
-                  ElevatedButton(
-                      onPressed: () {
-                        //showResultDialog(context, "Why would you do that?", "Oh no...", "Coz I'm an idiot");
+                  MaterialButton(
+                    height: 70.0,
+                    minWidth: 240.0,
+                    //color: Theme.of(context).primaryColor,
+                    color: appColorBlue01,
+                    textColor: Colors.white,
+                    splashColor: appColorPink01,
+                    onPressed: () {
+                      scanningDialog(context);
+                      Provider.of<NFCNotifier>(context, listen: false)
+                          .startNFCOperation(nfcOperation: NFCOperation.write);
+                    },
+                    child: const Text(
+                      "WRITE",
+                      style: TextStyle(fontSize: 24.0),),
+                  ),
 
-                        showSnackBar(context: context, message: "Please leave.", type: ResultType.fail);
-                      },
-                      child: const Text("Just don't press this one yet")),
+                  const SizedBox(height: 30.0,),
 
-                  const SizedBox(height: 70.0,),
+                  const Text("Check result on Debug Console of VS Code"),
+
+                  const SizedBox(height: 40,),
 
                   Consumer<NFCNotifier>(builder: (context, provider, _) {
                     if (provider.isProcessing) {
