@@ -100,7 +100,7 @@ class AndroidNxp
       if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
       {
         result = true;
-        //log.i("Android NXP S0 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+        log.i("Android NXP S0 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
       }
       else
       {
@@ -279,12 +279,12 @@ class AndroidNxp
       if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
       {
         result = true;
-        //log.i("Android NXP S1 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+        log.i("Android NXP S1 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
       }
       else
       {
         log.e("S1 Read failed");
-        log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+        // log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
         
         result = false;
       }
@@ -332,5 +332,131 @@ class AndroidNxp
 
     return result;
   }
+
+  Future<bool> writeSector0Data() async 
+  {
+    bool result = false;
+
+    int startAddress = GPB_S0_DATA_PAGE_START_ADDRESS;
+    int endAddress = GPB_S0_DATA_PAGE_END_ADDRESS;
+
+    try
+    {
+      for(int currentWriteAddress = startAddress; currentWriteAddress < endAddress; currentWriteAddress++)
+      {
+        var dataWriteCommand = Uint8List.fromList([0xA2, currentWriteAddress, 0xAA, 0xAA, 0xAA, 0xAA]);
+
+        var rxData = await _nxpTag!.transceive(data: dataWriteCommand);
+
+        if(rxData.contains(NXP_CMD_ACK) == false)
+        {
+          log.e("Android NXP Write S0 - Failed at $currentWriteAddress, RX: ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+
+          //No point in continuing with rest of write procedure
+          //
+          break;
+        }
+        else
+        {
+          //Write successful, move on
+          //
+          result = true;
+          continue;
+        }
+      }
+
+      if(result == true)
+      {
+        log.i("Bytes written on S0: ${(endAddress - startAddress + 1) * 4}");
+      }
+    }
+    catch(e)
+    {
+      log.e("EXPTN in S0 Write - ${e.toString()}");
+
+      result = false;
+    }
+
+    return result;
+  }
+
+  Future<bool> writeSector1Data() async 
+  {
+    bool result = false;
+
+    int startAddress = GPB_S1_DATA_PAGE_START_ADDRESS;
+    
+    //No need to test writing data on the entire sector 1, as on actual controls, roughly 1200 bytes are consumed
+    //For which, sector 0 is consumed entirely which has a capacity of 212 pages * 4 = 848 bytes,
+    //so we can test writing only 352 bytes / 4 = 88 pages
+    //
+    //We can test writing data on the entire sector 1, but it won't give us a precise time duration for write,
+    //which is what we're seeking in the Flutter NFC evaluation exercise
+    //
+
+    //int endAddress = GPB_S1_DATA_PAGE_END_ADDRESS;
+    int endAddress = GPB_S1_DATA_PAGE_START_ADDRESS + 88;
+
+    try
+    {
+      for(var currentWriteAddress = startAddress; currentWriteAddress < endAddress; currentWriteAddress++)
+      {
+        var dataWriteCommand = Uint8List.fromList([0xA2, currentWriteAddress, 0xBB, 0xBB, 0xBB, 0xBB]);
+
+        var rxData = await _nxpTag!.transceive(data: dataWriteCommand);
+
+        if(rxData.contains(NXP_CMD_ACK) == false)
+        {
+          log.e("Android NXP Write S1 - Failed at $currentWriteAddress, RX: ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+
+          //No point in continuing with rest of write procedure
+          //
+          break;
+        }
+        else
+        {
+          //Write successful, move on
+          //
+          result = true;
+          continue;
+        }
+      }
+
+      if(result == true)
+      {
+        log.i("Bytes written on S1: ${(endAddress - startAddress + 1) * 4}");
+      }
+    }
+    catch(e)
+    {
+      log.e("EXPTN in S1 Write - ${e.toString()}");
+
+      result = false;
+    }
+
+    return result;
+  }
+
+  Future<bool> isChipAvailable() async 
+  {
+    bool result = false;
+
+    try
+    {
+
+    }
+    catch(e)
+    {
+      log.e("EXPTN in Chip Avlbl Check - ${e.toString()}");
+
+      result = false;
+    }
+
+    return result;
+  }  
 
 }

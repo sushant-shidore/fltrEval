@@ -417,6 +417,60 @@ class NFCNotifier extends ChangeNotifier
         break;
 
         case NFCChipType.nxpAndroid:
+        {
+          var nxpTag = MifareUltralight.from(tag);
+
+          if(nxpTag == null)
+          {
+            log.e("Tag found null");
+          }
+          else
+          {
+            AndroidNxp androidNxpHandler = AndroidNxp(tag: nxpTag);
+
+            Stopwatch writeTimer = Stopwatch()..start();
+
+            bool passwordResult = await androidNxpHandler.passwordAuthentication();
+            
+            if(passwordResult == true)
+            {
+              bool sec0WriteResult = await androidNxpHandler.writeSector0Data();
+
+              if(sec0WriteResult == true)
+              {
+                bool sectorSwitchResult = await androidNxpHandler.sectorSwitch(NXP_SEC1_ID);
+
+                if(sectorSwitchResult == true)
+                {
+                  bool sec1WriteResult = await androidNxpHandler.writeSector1Data();
+
+                  if(sec1WriteResult == true)
+                  {
+                    log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+                  }
+                  else
+                  {
+                    log.e("Android NXP - S1 Write didn't work");
+                  }
+                }
+                else
+                {
+                  log.e("Android NXP Write - Sector Switch 1 didn't work");  
+                }
+              }
+              else
+              {
+                log.e("Android NXP - S0 Write didn't work");
+              }
+
+              writeTimer.stop();
+            }
+            else
+            {
+              log.e("Android NXP Write - PWD didn't work");
+            }
+          }
+        }        
         break;
 
         case NFCChipType.stIos:
