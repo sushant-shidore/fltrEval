@@ -94,23 +94,84 @@ class AndroidNxp
 
     try
     {
-      Uint8List command = Uint8List.fromList([0x3A, startAddress, endAddress]);
-      Uint8List rxData = await _nxpTag!.transceive(data: command);
+      //==================== USING 'transceive()' API to read all pages at once ========================//
+      //This works fine on Google Pixe 6a, but keeps throwing 'Tag Loss' exception on Samsung phones
+      //Apparently anything above 255 bytes to be read at once is not acceptable there, hence
+      //kept limited to 63 pages * 4 = 253 bytes
+      //
+      // Uint8List command = Uint8List.fromList([0x3A, startAddress, endAddress]);
+      // Uint8List rxData = await _nxpTag!.transceive(data: command);
 
-      if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
-      {
-        result = true;
-        log.i("Android NXP S0 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
-      }
-      else
-      {
-        log.e("S1 Read failed");
-        log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+      // if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
+      // {
+      //   result = true;
+      //   //log.i("Android NXP S0 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+      // }
+      // else
+      // {
+      //   log.e("S0 Read failed");
+      //   log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
         
-        result = false;
+      //   result = false;
+      // }
+
+      //==================== USING 'transceive()' API with limited no of pages being read at once ========================//
+      //
+      int pagesCanBeReadAtOnce = 63;
+      List<int> readBuffer = List.empty(growable: true);
+      var currentStartReadAddress = startAddress;
+      var currentEndReadAddress = currentStartReadAddress + pagesCanBeReadAtOnce;
+
+      while(currentEndReadAddress <= endAddress)
+      {
+        // log.i("currentStartReadAddress = $currentStartReadAddress");
+        // log.i("currentEndReadAddress = $currentEndReadAddress");
+
+        Uint8List command = Uint8List.fromList([0x3A, currentStartReadAddress, currentEndReadAddress]);
+        Uint8List rxData = await _nxpTag!.transceive(data: command);
+
+        if(rxData.length == ((currentEndReadAddress - currentStartReadAddress) + 1) * 4 )
+        {
+          result = true;
+          readBuffer.addAll(rxData);
+
+          if(currentEndReadAddress < endAddress)
+          {
+            currentStartReadAddress = currentEndReadAddress;
+          
+            if((currentStartReadAddress + pagesCanBeReadAtOnce) > endAddress)
+            {
+              //Get left-over pages i.e. the last batch
+              //
+              currentEndReadAddress = endAddress;
+            }
+            else
+            {
+              //Get the next batch of pages
+              //
+              currentEndReadAddress = currentStartReadAddress + pagesCanBeReadAtOnce;
+            }
+          }
+          else
+          {
+            //This means last batch of pages is already read, so escape
+            //
+            //log.i("Android NXP S0 Data Read - ${readBuffer.length}, ${helper.getHexofListUint(readBuffer)}");
+
+            break;
+          }
+        }
+        else
+        {
+          log.e("S0 Read failed");
+          log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+          break;
+        }
       }
 
-      //==================== USING 'ReadPages()' API which reads 4 pages at once ========================//
+      // // ==================== USING 'ReadPages()' API which reads 4 pages at once ========================//
       // var totalPagesRead = 0;
 
       // List<int> readBuffer = List.empty(growable: true);
@@ -273,20 +334,81 @@ class AndroidNxp
 
     try
     {
-      Uint8List command = Uint8List.fromList([0x3A, startAddress, endAddress]);
-      Uint8List rxData = await _nxpTag!.transceive(data: command);
+      //==================== USING 'transceive()' API to read all pages at once ========================//
+      //This works fine on Google Pixe 6a, but keeps throwing 'Tag Loss' exception on Samsung phones
+      //Apparently anything above 255 bytes to be read at once is not acceptable there, hence
+      //kept limited to 63 pages * 4 = 253 bytes
 
-      if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
-      {
-        result = true;
-        log.i("Android NXP S1 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
-      }
-      else
-      {
-        log.e("S1 Read failed");
-        // log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+      // Uint8List command = Uint8List.fromList([0x3A, startAddress, endAddress]);
+      // Uint8List rxData = await _nxpTag!.transceive(data: command);
+
+      // if(rxData.length == ((endAddress - startAddress) + 1) * 4 )
+      // {
+      //   result = true;
+      //   // log.i("Android NXP S1 Data Read - ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+      // }
+      // else
+      // {
+      //   log.e("S1 Read failed");
+      //   // log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
         
-        result = false;
+      //   result = false;
+      // }
+
+      //==================== USING 'transceive()' API with limited no of pages being read at once ========================//
+      //
+      int pagesCanBeReadAtOnce = 63;
+      List<int> readBuffer = List.empty(growable: true);
+      var currentStartReadAddress = startAddress;
+      var currentEndReadAddress = currentStartReadAddress + pagesCanBeReadAtOnce;
+
+      while(currentEndReadAddress <= endAddress)
+      {
+        // log.i("currentStartReadAddress = $currentStartReadAddress");
+        // log.i("currentEndReadAddress = $currentEndReadAddress");
+
+        Uint8List command = Uint8List.fromList([0x3A, currentStartReadAddress, currentEndReadAddress]);
+        Uint8List rxData = await _nxpTag!.transceive(data: command);
+
+        if(rxData.length == ((currentEndReadAddress - currentStartReadAddress) + 1) * 4 )
+        {
+          result = true;
+          readBuffer.addAll(rxData);
+
+          if(currentEndReadAddress < endAddress)
+          {
+            currentStartReadAddress = currentEndReadAddress;
+          
+            if((currentStartReadAddress + pagesCanBeReadAtOnce) > endAddress)
+            {
+              //Get left-over pages i.e. the last batch
+              //
+              currentEndReadAddress = endAddress;
+            }
+            else
+            {
+              //Get the next batch of pages
+              //
+              currentEndReadAddress = currentStartReadAddress + pagesCanBeReadAtOnce;
+            }
+          }
+          else
+          {
+            //This means last batch of pages is already read, so escape
+            //
+            //log.i("Android NXP S1 Data Read - ${readBuffer.length}, ${helper.getHexofListUint(readBuffer)}");
+
+            break;
+          }
+        }
+        else
+        {
+          log.e("S1 Read failed");
+          log.e("RX: ${rxData.length}, ${helper.getHexOfUint8List(rxData)}");
+          
+          result = false;
+          break;
+        }
       }
 
       //==================== USING 'ReadPages()' API which reads 4 pages at once ========================//

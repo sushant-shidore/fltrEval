@@ -121,7 +121,7 @@ class AndroidSt
 
       //Now send the commands one-by-one. It should be efficient now and will give more accurate write timing
       //
-      Stopwatch writeTimer = Stopwatch()..start();
+      //Stopwatch writeTimer = Stopwatch()..start();
       
       for(int i=0; i < writeCommands.length; i++)
       {
@@ -142,15 +142,15 @@ class AndroidSt
         }
       }
 
-      if(result == true)
-      {
-        writeTimer.stop();
-        log.i("It took ${writeTimer.elapsedMilliseconds}ms to write ${(totalBlocksToWrite * bytesInAblock)} bytes");
-      }
-      else
-      {
-        //Operation has failed, so no point in printing timing
-      }
+      // if(result == true)
+      // {
+      //   writeTimer.stop();
+      //   log.i("It took ${writeTimer.elapsedMilliseconds}ms to write ${(totalBlocksToWrite * bytesInAblock)} bytes");
+      // }
+      // else
+      // {
+      //   //Operation has failed, so no point in printing timing
+      // }
     }
     catch(e)
     {
@@ -245,6 +245,8 @@ class AndroidSt
     catch(e)
     {
       log.e("EXPTN in Android ST Read - ${e.toString()}");
+
+      result = false;
     }
 
     return result;

@@ -20,3 +20,5 @@ const int NXP_SEC1_ID = 0x01;
 
 const int NXP_CORRECT_PWD_ACK_BYTE_01 = 0x12;
 const int NXP_CORRECT_PWD_ACK_BYTE_02 = 0xED;
+
+const int NFC_RW_RETRY_COUNT_LIMIT = 5;

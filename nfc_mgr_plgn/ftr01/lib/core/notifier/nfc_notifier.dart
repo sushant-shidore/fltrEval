@@ -27,6 +27,8 @@ class NFCNotifier extends ChangeNotifier
 
   bool get isProcessing => _isProcessing;
 
+  int _retryCounter = NFC_RW_RETRY_COUNT_LIMIT;
+
   String get message => _message;
 
   Future<void> startNFCOperation(
@@ -51,34 +53,62 @@ class NFCNotifier extends ChangeNotifier
         pollingOption.add(NfcPollingOption.iso15693);
         pollingOption.add(NfcPollingOption.iso18092);
 
+        _retryCounter = NFC_RW_RETRY_COUNT_LIMIT;
+
+
         NfcManager.instance.startSession(pollingOptions: pollingOption, onDiscovered: (NfcTag nfcTag) async 
         {
+          log.i(">>>>> TAG_DISC. retry counter = $_retryCounter");
+
+          //NfcTag tagDetected = nfcTag;
+
+          bool nfcResult = false;
           if (nfcOperation == NFCOperation.read) 
           {
-            await _readFromTag(tag: nfcTag);
+            _retryCounter--;
+            
+            nfcResult = await _readFromTag(tag: nfcTag);
+
+            nfcResult == true ? _message = "Read Success" : _message = "Read failed";
           } 
           else if (nfcOperation == NFCOperation.write) 
           {
-            await _writeToTag(tag: nfcTag);
-            _message = "DONE";
+            _retryCounter--;
+            
+            nfcResult = await _writeToTag(tag: nfcTag);
+            
+            nfcResult == true ? _message = "Write Success" : _message = "Write failed";
           }
 
-          _isProcessing = false;
-          notifyListeners();
-          await NfcManager.instance.stopSession();
+          if( (nfcResult == true)  || ( (nfcResult == false) && (_retryCounter <= 0) ) )
+          {
+            _isProcessing = false;
+            notifyListeners();
+
+            await NfcManager.instance.stopSession();
+          }
+
+          // _isProcessing = false;
+          // notifyListeners();
+
+          // await NfcManager.instance.stopSession();
         }, 
         onError: (e) async 
         {
           _isProcessing = false;
           _message = e.toString();
           notifyListeners();
-        });
-      } else {
+        }, invalidateAfterFirstRead: false);
+      } 
+      else 
+      {
         _isProcessing = false;
         _message = "Please Enable NFC From Settings";
         notifyListeners();
       }
-    } catch (e) {
+    } 
+    catch (e) 
+    {
       _isProcessing = false;
       _message = e.toString();
       notifyListeners();
@@ -109,8 +139,10 @@ class NFCNotifier extends ChangeNotifier
       return nfcChipIdentified;
   }
 
-  Future<void> _readFromTag({required NfcTag tag}) async 
-  { 
+  Future<bool> _readFromTag({required NfcTag tag}) async 
+  {
+    bool result = false;
+
     try 
     {
       var tagData = {...tag.data};
@@ -159,6 +191,8 @@ class NFCNotifier extends ChangeNotifier
                   if(s1ReadResult == true)
                   {
                     log.i("It took ${readTimer.elapsedMilliseconds}ms to read S0 & S1");
+
+                    result = true;
                   }
                   else
                   {
@@ -220,6 +254,8 @@ class NFCNotifier extends ChangeNotifier
                   if(s1ReadResult == true)
                   {
                     log.i("It took ${readTimer.elapsedMilliseconds}ms to read S0 & S1");
+
+                    result = true;
                   }
                   else
                   {
@@ -279,6 +315,8 @@ class NFCNotifier extends ChangeNotifier
                 else
                 {
                   log.i("iOS ST - ALL DONE!");
+
+                  result = true;
                 }
               }
             }
@@ -297,6 +335,8 @@ class NFCNotifier extends ChangeNotifier
           if(stTag == null) 
           {
             log.e("Tag found null");
+
+            result = false;
           } 
           else 
           {
@@ -307,33 +347,14 @@ class NFCNotifier extends ChangeNotifier
             if(readResult == false)
             {
               log.e("Android ST - Read didn't work");
+              result = false;
             }
             else
             {
-              bool pwdResult = await androidStHandler.passwordAuthentication();
-
-              if(pwdResult == false)
-              {
-                log.e("Android ST - Pwd Auth didn't work");
-              }
-              else
-              {
-                bool writeResult = await androidStHandler.writeDataAndVerify();
-
-                if(writeResult == false)
-                {
-                  log.e("Android ST - Write didn't work");
-                }
-                else
-                {
-                  log.i("Android ST - All Done!");
-                }
-              }
+              result = true;
             }
           }
         }
-        
-
         break;
 
         case NFCChipType.unidentified:
@@ -347,10 +368,14 @@ class NFCNotifier extends ChangeNotifier
     {
       log.e("EXPTN ${e.toString()} in _readFromTag");
     }
+
+    return result;
   }
 
-  Future<void> _writeToTag({required NfcTag tag}) async 
+  Future<bool> _writeToTag({required NfcTag tag}) async 
   {
+    bool result = false;
+
     var tagData = {...tag.data};
 
     _nfcChipType = _identifyNfcChip(tagData.keys);
@@ -390,6 +415,8 @@ class NFCNotifier extends ChangeNotifier
                   if(sec1WriteResult == true)
                   {
                     log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+
+                    result = true;
                   }
                   else
                   {
@@ -447,6 +474,8 @@ class NFCNotifier extends ChangeNotifier
                   if(sec1WriteResult == true)
                   {
                     log.i("It took ${writeTimer.elapsedMilliseconds}ms to write S0 & S1");
+
+                    result = true;
                   }
                   else
                   {
@@ -477,6 +506,44 @@ class NFCNotifier extends ChangeNotifier
         break;
 
         case NFCChipType.stAndroid:
+          
+          var stTag = NfcV.from(tag);
+
+          if(stTag == null)
+          {
+            log.e("Tag found null");
+          }
+          else
+          {
+            AndroidSt androidStHandler = AndroidSt(tag: stTag);
+
+            Stopwatch writeTimer = Stopwatch()..start();
+
+            bool pwdResult = await androidStHandler.passwordAuthentication();
+
+            if(pwdResult == false)
+            {
+              log.e("Android ST - Pwd Auth didn't work");
+            }
+            else
+            {
+              bool writeResult = await androidStHandler.writeDataAndVerify();
+
+              if(writeResult == false)
+              {
+                log.e("Android ST - Write didn't work");
+                result = false;
+              }
+              else
+              {
+                log.i("It took ${writeTimer.elapsedMilliseconds}ms to write data");
+                result = true;
+              }
+            }
+
+            writeTimer.stop();
+          }
+
         break;
 
         case NFCChipType.unidentified:
@@ -489,7 +556,10 @@ class NFCNotifier extends ChangeNotifier
     catch (e)
     {
       log.e("EXPTN ${e.toString()} in _writeToTag");
+      result = false;
     }
+
+    return result;
   }
 
   NdefMessage _createNdefMessage({required String dataType}) {
